@@ -14,40 +14,73 @@
 ### 1、图像配准的基本过程：
 大量的特征将在第一张源图中被提取出来，这些特征将在目标图像中寻找匹配的特征信息。通过两幅图片中相匹配的特征信息，源图和目标图像之间的像素坐标转换关系将会被提取出来。借助这种转换关系可以实现将一幅图片与另一幅校准对齐，这种转换关系可以用单应矩阵来表示。
 ### 2、单应矩阵：
-在计算机视觉中，平面的单应性被定义为一个平面到另外一个平面的投影映射。单应性简单来说就是一个3*3矩阵：
-![image]( https://github.com/lexsaints/powershell/blob/master/IMG/ps2.png)
+在计算机视觉中，平面的单应性被定义为一个平面到另外一个平面的投影映射。单应性简单来说就是一个3*3 矩阵：
 
-如果需要在编辑器中插入数学公式，可以使用两个美元符 $$ 包裹 LaTeX 格式的数学公式来实现。如输入：
-```
-$$
-\lim_{x\rightarrow0} \frac{\sin(x)}{x} = 1
-$$
-```
+![image]( https://github.com/USTC-Computer-Vision-2021/project-cv_dyq/blob/main/funcImg/func1.JPG)
 
-提交后，配合浏览器插件 [MathJax Plugin for Github](https://chrome.google.com/webstore/detail/mathjax-plugin-for-github/ioemnmodlmafdkllaclgeombjnmnbima) 可以渲染出数学公式。助教端已安装，可以直接渲染，大家直接在报告种插入数学公式代码即可，或者采用别的方式插入公式，比如直接贴图片也行，但需要考虑美观。
+若（x1,y1）是第一幅图中的一个点的坐标，（x2,y2）是第二幅图片中相同物理点的坐标，单应矩阵可以通过以下方式将这两幅图片联系起来：
 
-$$
-\lim_{x\rightarrow 0} \frac{\sin(x)}{x} = 1
-$$
+![image]( https://github.com/USTC-Computer-Vision-2021/project-cv_dyq/blob/main/funcImg/func2.JPG)
+
+如果能获取这个单应矩阵，那么应用这个单应矩阵对一幅图片所有像素的坐标进行变换，变换结果就能和第二图图片配准。
+### 3、单应矩阵：
+可以使用opencv函数findHomography计算单应矩阵，将存储对应点的数据做函数输入，输出就是单应矩阵。那么该如何找到对应点。
+### 4、寻找匹配点：
+在计算机视觉应用中，我们通常需要识别图像中感兴趣的稳定点。这些点被称为关键点或特征点。一个特征点检测器包括两方面：
+- 定位器：图像中被检测到的点在图像尺度变化，图像旋转等条件下要保持稳定。定位器就是用来找到这些稳定的点。
+- 描述子：定位器告诉我们兴趣点的位置，描述子则可以使我们区分不同的兴趣点。描述器可以把每个特征点描述成一个由数字构成的矩阵，理想情况下，在两幅图像中，相同物理点的描述子结果是相同的。
+匹配算法用于寻找在两幅图片中的那些对应特征点。为此，将一个图像中每个特征的描述符与第二个图像中每个特征的描述符进行比较，以找到良好的匹配。本次使用sift作为特征检测器。
 
 ## 代码实现
 
-尽量讲清楚自己的设计，以上分析的每个技术难点分别采用什么样的算法实现的，可以是自己写的（会有加分），也可以调包。如有参考别人的实现，虽不可耻，但是要自己理解和消化，可以摆上参考链接，也鼓励大家进行优化和改进。
-
-- 鼓励大家分拆功能，进行封装，减小耦合。每个子函数干的事情尽可能简单纯粹，方便复用和拓展，整个系统功能也简洁容易理解。
-- 尽量规范地命名和注释，使代码容易理解，可以自己参考网上教程。
-
-插入算法的伪代码或子函数代码等，能更清晰地说明自己的设计，其中，可以用 markdown 中的代码高亮插入，比如：
-
+单应矩阵计算代码：
 ```python
-data = ["one", "two", "three"]
-for idx, val in enumerate(data):
-    print(f'{idx}:{val}')
-
-def add_number(a, b):
-    return a + b
+def registration(self,img1,img2,matchResName):
+    kp1, des1 = self.sift.detectAndCompute(img1, None)
+    kp2, des2 = self.sift.detectAndCompute(img2, None)
+    matcher = cv2.BFMatcher()
+    raw_matches = matcher.knnMatch(des1, des2, k=2)
+    good_points = []
+    good_matches=[]
+    for m1, m2 in raw_matches:
+        if m1.distance < self.ratio * m2.distance:
+            good_points.append((m1.trainIdx, m1.queryIdx))
+            good_matches.append([m1])
+    good_matches=good_matches[::16]
+    img3 = cv2.drawMatchesKnn(img1, kp1, img2, kp2, good_matches, None, flags=2)
+    cv2.imwrite(matchResName, img3)
+    if len(good_points) > self.min_match:
+        image1_kp = np.float32(
+            [kp1[i].pt for (_, i) in good_points])
+        image2_kp = np.float32(
+            [kp2[i].pt for (i, _) in good_points])
+        H, status = cv2.findHomography(image2_kp, image1_kp, cv2.RANSAC,5.0)
+    return H
 ```
+图像融合代码：
+```python
+def blending(self,img1,img2,matchResName):
+    H = self.registration(img1,img2,matchResName)
+    height_img1 = img1.shape[0]
+    width_img1 = img1.shape[1]
+    width_img2 = img2.shape[1]
+    height_panorama = height_img1
+    width_panorama = width_img1 +width_img2
 
+    panorama1 = np.zeros((height_panorama, width_panorama, 3))
+    mask1 = self.create_mask(img1,img2,version='left_image')
+    panorama1[0:img1.shape[0], 0:img1.shape[1], :] = img1
+    panorama1 *= mask1
+    mask2 = self.create_mask(img1,img2,version='right_image')
+    panorama2 = cv2.warpPerspective(img2, H, (width_panorama, height_panorama))*mask2
+    result=panorama1+panorama2
+
+    rows, cols = np.where(result[:, :, 0] != 0)
+    min_row, max_row = min(rows), max(rows) + 1
+    min_col, max_col = min(cols), max(cols) + 1
+    final_result = result[min_row:max_row, min_col:max_col, :]
+    return final_result
+```
 
 ## 效果展示
 
