@@ -84,11 +84,9 @@ def blending(self,img1,img2,matchResName):
 
 ## 效果展示
 
-在这儿可以展示自己基于素材实现的效果，可以贴图，如果是视频，建议转成 Gif 插入，例如：
+某融合结果如下,左半边为处理后,右半边为处理前：
 
-![AR 效果展示](demo/ar.gif)
-
-如果自己实现了好玩儿的 feature，比如有意思的交互式编辑等，可以想办法展示和凸显出来。
+![image]( https://github.com/USTC-Computer-Vision-2021/project-cv_dyq/blob/main/ouput/tower_compare.jpg)
 
 ## 工程结构
 
@@ -96,27 +94,27 @@ def blending(self,img1,img2,matchResName):
 .
 ├── code
 │   ├── run.py
-│   └── utils.py
+│   └── stitch.py
 ├── input
-│   ├── bar.png
-│   └── foo.png
+│   ├── tower1.jpg
+│   └── tower2.jpg
 └── output
-    └── result.png
+│   ├── tower_compare.jpg
+│   └── tower_matching.jpg
 ```
 
 ## 运行说明
 
-在这里，建议写明依赖环境和库的具体版本号，如果是 python 可以建一个 requirements.txt，例如：
+依赖环境和库的具体版本号, requirements.txt内容如下：
 
 ```
-opencv-python==3.4
-Flask==0.11.1
+numpy
+opencv-contrib-python==4.5.4.60
+opencv-python==4.5.1.48
 ```
 
-运行说明尽量列举清晰，例如：
+运行说明：
 ```
-pip install opencv-python
-python run.py --src_path xxx.png --dst_path yyy.png
-npm run make-es5 --silent
+python run.py --undefog-img-path ../input/tower1.jpg --defog-img-path ../input/tower2.jpg --fusion-result-name ../output/tower_compare.jpg --matching-result-name ../output/tower_matching.jpg
 ```
 
